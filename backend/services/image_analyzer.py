@@ -1,7 +1,7 @@
 import cv2
 import numpy as np
 from PIL import Image, ImageDraw, ImageFont
-from paddleocr import PaddleOCR
+import easyocr
 import webcolors
 from pathlib import Path
 from typing import Dict, List, Tuple, Optional
@@ -14,8 +14,13 @@ class ImageAnalyzer:
     """画像解析・OCR処理サービス"""
     
     def __init__(self):
-        # PaddleOCRの初期化（日本語+英語対応）
-        self.ocr = PaddleOCR(use_angle_cls=True, lang='japan', show_log=False)
+        # EasyOCRの初期化（日本語+英語対応）
+        try:
+            self.ocr = easyocr.Reader(['en', 'ja'], gpu=False)
+            self.ocr_available = True
+        except Exception as e:
+            logger.error(f"OCR初期化エラー: {str(e)}")
+            self.ocr_available = False
         
     def analyze_screenshot(self, image_path: str) -> Dict:
         """
@@ -54,10 +59,20 @@ class ImageAnalyzer:
     def _analyze_ocr(self, image_path: str) -> Dict:
         """OCR解析"""
         try:
-            # OCR実行
-            ocr_results = self.ocr.ocr(image_path, cls=True)
+            if not self.ocr_available:
+                return {
+                    "text_blocks": [],
+                    "total_text_count": 0,
+                    "japanese_text_ratio": 0.0,
+                    "average_confidence": 0.0,
+                    "button_texts": [],
+                    "heading_texts": []
+                }
             
-            if not ocr_results or not ocr_results[0]:
+            # EasyOCR実行
+            ocr_results = self.ocr.readtext(image_path)
+            
+            if not ocr_results:
                 return {
                     "text_blocks": [],
                     "total_text_count": 0,
@@ -77,11 +92,11 @@ class ImageAnalyzer:
             total_chars = 0
             confidences = []
             
-            for result in ocr_results[0]:
-                # 座標情報
+            for result in ocr_results:
+                # EasyOCRの結果形式: [coordinates, text, confidence]
                 coordinates = result[0]
-                text = result[1][0]
-                confidence = result[1][1]
+                text = result[1]
+                confidence = result[2]
                 
                 confidences.append(confidence)
                 
@@ -278,23 +293,28 @@ class ImageAnalyzer:
             
             above_fold = image[:fold_height, :]
             
-            # Above the Fold領域のOCR
-            temp_path = "/tmp/above_fold_temp.png"
-            cv2.imwrite(temp_path, above_fold)
-            
-            ocr_results = self.ocr.ocr(temp_path, cls=True)
-            
             cta_keywords = ['購入', '申込', '登録', '予約', 'buy', 'purchase', 'register', 'book']
             cta_found = False
             important_text_count = 0
             
-            if ocr_results and ocr_results[0]:
-                for result in ocr_results[0]:
-                    text = result[1][0]
-                    if any(keyword in text.lower() for keyword in cta_keywords):
-                        cta_found = True
-                    if len(text) > 5:  # 重要そうなテキスト
-                        important_text_count += 1
+            # OCRが利用可能な場合のみ実行
+            if self.ocr_available:
+                try:
+                    # Above the Fold領域のOCR
+                    temp_path = "/tmp/above_fold_temp.png"
+                    cv2.imwrite(temp_path, above_fold)
+                    
+                    ocr_results = self.ocr.readtext(temp_path)
+                    
+                    if ocr_results:
+                        for result in ocr_results:
+                            text = result[1]
+                            if any(keyword in text.lower() for keyword in cta_keywords):
+                                cta_found = True
+                            if len(text) > 5:  # 重要そうなテキスト
+                                important_text_count += 1
+                except Exception as ocr_error:
+                    logger.warning(f"Above the Fold OCR処理をスキップ: {str(ocr_error)}")
             
             # Above the Fold領域の色分析
             above_fold_pil = pil_image.crop((0, 0, pil_image.width, fold_height))
@@ -364,30 +384,37 @@ class ImageAnalyzer:
                 "is_low_contrast": True
             }
     
-    def _get_text_position(self, coordinates: List[List[int]]) -> str:
+    def _get_text_position(self, coordinates) -> str:
         """テキストの位置を判定"""
-        # バウンディングボックスの中心点を計算
-        center_x = sum(point[0] for point in coordinates) / 4
-        center_y = sum(point[1] for point in coordinates) / 4
-        
-        # 画面上での相対位置（暫定的な判定）
-        if center_y < 200:
-            return "top"
-        elif center_y > 800:
-            return "bottom"
-        else:
+        try:
+            # EasyOCRの座標形式 [[x1,y1],[x2,y2],[x3,y3],[x4,y4]] に対応
+            center_x = sum(point[0] for point in coordinates) / len(coordinates)
+            center_y = sum(point[1] for point in coordinates) / len(coordinates)
+            
+            # 画面上での相対位置（暫定的な判定）
+            if center_y < 200:
+                return "top"
+            elif center_y > 800:
+                return "bottom"
+            else:
+                return "middle"
+        except Exception:
             return "middle"
     
-    def _estimate_font_size(self, coordinates: List[List[int]]) -> int:
+    def _estimate_font_size(self, coordinates) -> int:
         """フォントサイズの推定"""
-        # バウンディングボックスの高さからフォントサイズを推定
-        heights = []
-        for i in range(len(coordinates)):
-            next_i = (i + 1) % len(coordinates)
-            heights.append(abs(coordinates[i][1] - coordinates[next_i][1]))
-        
-        estimated_height = max(heights)
-        # 高さからフォントサイズを推定（経験的な値）
-        estimated_font_size = int(estimated_height * 0.8)
-        
-        return max(estimated_font_size, 8)  # 最小8px
+        try:
+            # バウンディングボックスの高さからフォントサイズを推定
+            if len(coordinates) >= 4:
+                # 上端と下端のY座標の差を計算
+                y_coords = [point[1] for point in coordinates]
+                height = max(y_coords) - min(y_coords)
+            else:
+                height = 16  # デフォルト値
+            
+            # 高さからフォントサイズを推定（経験的な値）
+            estimated_font_size = int(height * 0.8)
+            
+            return max(estimated_font_size, 8)  # 最小8px
+        except Exception:
+            return 16  # デフォルト値

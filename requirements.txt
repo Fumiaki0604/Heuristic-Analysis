@@ -8,8 +8,8 @@ playwright>=1.40.0
 # Image Processing & OCR
 opencv-python>=4.8.0
 Pillow>=10.2.0
-paddlepaddle-cpu>=2.5.0
-paddleocr>=2.7.0
+pytesseract>=0.3.10
+easyocr>=1.7.0
 
 # HTML/XML Processing
 beautifulsoup4>=4.12.0
