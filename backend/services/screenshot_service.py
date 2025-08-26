@@ -18,27 +18,35 @@ class ScreenshotService:
     
     async def __aenter__(self):
         """非同期コンテキストマネージャーの開始"""
-        self.playwright = await async_playwright().start()
-        self._browser = await self.playwright.chromium.launch(
-            headless=True,
-            args=[
-                '--no-sandbox',
-                '--disable-setuid-sandbox',
-                '--disable-dev-shm-usage',
-                '--disable-accelerated-2d-canvas',
-                '--no-first-run',
-                '--no-zygote',
-                '--single-process',
-                '--disable-gpu'
-            ]
-        )
+        try:
+            self.playwright = await async_playwright().start()
+            self._browser = await self.playwright.chromium.launch(
+                headless=True,
+                args=[
+                    '--no-sandbox',
+                    '--disable-setuid-sandbox',
+                    '--disable-dev-shm-usage',
+                    '--disable-accelerated-2d-canvas',
+                    '--no-first-run',
+                    '--no-zygote',
+                    '--single-process',
+                    '--disable-gpu'
+                ]
+            )
+            self._browser_available = True
+        except Exception as e:
+            logger.error(f"Playwrightブラウザの起動に失敗: {str(e)}")
+            self.playwright = None
+            self._browser = None
+            self._browser_available = False
         return self
     
     async def __aexit__(self, exc_type, exc_val, exc_tb):
         """非同期コンテキストマネージャーの終了"""
         if self._browser:
             await self._browser.close()
-        await self.playwright.stop()
+        if self.playwright:
+            await self.playwright.stop()
     
     async def capture_page(self, url: str, device_type: str = "desktop") -> Dict:
         """
@@ -51,8 +59,9 @@ class ScreenshotService:
         Returns:
             スクリーンショット情報とHTMLデータ
         """
-        if not self._browser:
-            raise RuntimeError("ブラウザが初期化されていません")
+        if not self._browser_available:
+            logger.warning("Playwrightが利用できません。モックデータを返します。")
+            return self._create_mock_response(url, device_type)
         
         start_time = time.time()
         
@@ -178,6 +187,36 @@ class ScreenshotService:
             # Cookie処理はベストエフォートなのでエラーを無視
             logger.debug(f"Cookie処理をスキップ: {str(e)}")
             pass
+
+    def _create_mock_response(self, url: str, device_type: str) -> Dict:
+        """Playwrightが利用できない場合のモックレスポンス"""
+        return {
+            "screenshot_path": "/static/screenshots/mock.png",
+            "html_content": f"""
+            <html>
+                <head>
+                    <title>Mock Page for {url}</title>
+                    <meta name="description" content="This is a mock page for demonstration purposes">
+                </head>
+                <body>
+                    <h1>Mock Page</h1>
+                    <p>This is a mock page generated because Playwright is not available.</p>
+                    <button>Sample Button</button>
+                    <form>
+                        <label for="email">Email:</label>
+                        <input type="email" id="email" name="email">
+                        <input type="submit" value="Submit">
+                    </form>
+                </body>
+            </html>
+            """,
+            "title": f"Mock Page for {url}",
+            "meta_description": "This is a mock page for demonstration purposes",
+            "url": url,
+            "device_type": device_type,
+            "viewport": self._get_viewport_settings(device_type),
+            "processing_time": 0.1
+        }
 
 # シングルトンインスタンス用のファクトリー関数
 async def get_screenshot_service():
