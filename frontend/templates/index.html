@@ -1,0 +1,138 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Heuristic Analysis Tool</title>
+    <link rel="stylesheet" href="/static/css/style.css">
+</head>
+<body>
+    <header>
+        <div class="container">
+            <h1>🔍 Heuristic Analysis Tool</h1>
+            <p class="subtitle">WebページのUI/UXヒューリスティック分析</p>
+        </div>
+    </header>
+
+    <main class="container">
+        <!-- URL入力セクション -->
+        <section class="analysis-form">
+            <div class="form-container">
+                <h2>分析対象URL</h2>
+                <form id="analysisForm">
+                    <div class="input-group">
+                        <label for="url">WebページURL</label>
+                        <input 
+                            type="url" 
+                            id="url" 
+                            name="url" 
+                            placeholder="https://example.com" 
+                            required
+                        >
+                    </div>
+                    
+                    <div class="input-group">
+                        <label for="device_type">デバイスタイプ</label>
+                        <select id="device_type" name="device_type">
+                            <option value="desktop">デスクトップ</option>
+                            <option value="tablet">タブレット</option>
+                            <option value="mobile">スマートフォン</option>
+                        </select>
+                    </div>
+                    
+                    <button type="submit" class="analyze-btn" id="analyzeBtn">
+                        <span class="btn-text">分析開始</span>
+                        <span class="loading-spinner" style="display: none;">🔄</span>
+                    </button>
+                </form>
+            </div>
+        </section>
+
+        <!-- 結果表示セクション -->
+        <section id="results" class="results-section" style="display: none;">
+            <h2>分析結果</h2>
+            
+            <!-- 総合スコア -->
+            <div class="score-overview">
+                <div class="total-score">
+                    <span class="score-label">総合スコア</span>
+                    <span id="totalScore" class="score-value">--</span>
+                    <span class="score-max">/100</span>
+                </div>
+            </div>
+
+            <!-- カテゴリ別スコア -->
+            <div class="categories-grid">
+                <div class="category-card">
+                    <h3>情報設計</h3>
+                    <div class="score-bar">
+                        <div class="score-fill" data-category="information_architecture"></div>
+                    </div>
+                    <span class="score-text" data-score="information_architecture">--/30</span>
+                </div>
+                
+                <div class="category-card">
+                    <h3>CTA視認性</h3>
+                    <div class="score-bar">
+                        <div class="score-fill" data-category="cta_visibility"></div>
+                    </div>
+                    <span class="score-text" data-score="cta_visibility">--/20</span>
+                </div>
+                
+                <div class="category-card">
+                    <h3>可読性</h3>
+                    <div class="score-bar">
+                        <div class="score-fill" data-category="readability"></div>
+                    </div>
+                    <span class="score-text" data-score="readability">--/20</span>
+                </div>
+                
+                <div class="category-card">
+                    <h3>フォームUX</h3>
+                    <div class="score-bar">
+                        <div class="score-fill" data-category="form_ux"></div>
+                    </div>
+                    <span class="score-text" data-score="form_ux">--/15</span>
+                </div>
+                
+                <div class="category-card">
+                    <h3>アクセシビリティ</h3>
+                    <div class="score-bar">
+                        <div class="score-fill" data-category="accessibility"></div>
+                    </div>
+                    <span class="score-text" data-score="accessibility">--/10</span>
+                </div>
+                
+                <div class="category-card">
+                    <h3>パフォーマンス</h3>
+                    <div class="score-bar">
+                        <div class="score-fill" data-category="performance"></div>
+                    </div>
+                    <span class="score-text" data-score="performance">--/5</span>
+                </div>
+            </div>
+
+            <!-- スクリーンショット表示 -->
+            <div class="screenshot-container">
+                <h3>ページスクリーンショット</h3>
+                <img id="screenshot" src="" alt="ページスクリーンショット" style="display: none;">
+            </div>
+
+            <!-- 改善提案 -->
+            <div class="recommendations">
+                <h3>改善提案</h3>
+                <ul id="recommendationsList">
+                </ul>
+            </div>
+        </section>
+    </main>
+
+    <footer>
+        <div class="container">
+            <p>&copy; 2024 Heuristic Analysis Tool</p>
+        </div>
+    </footer>
+
+    <script src="/static/js/main.js"></script>
+</body>
+</html>

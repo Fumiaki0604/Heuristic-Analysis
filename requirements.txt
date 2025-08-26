@@ -1,0 +1,52 @@
+# Web Framework
+fastapi==0.104.1
+uvicorn[standard]==0.24.0
+
+# Web Scraping & Automation
+playwright==1.40.0
+selenium==4.15.2
+
+# Image Processing & OCR
+opencv-python==4.8.1.78
+Pillow==10.1.0
+paddlepaddle==2.5.2
+paddleocr==2.7.0.3
+
+# HTML/XML Processing
+beautifulsoup4==4.12.2
+lxml==4.9.3
+
+# HTTP Requests
+httpx==0.25.2
+requests==2.31.0
+
+# Data Processing
+pandas==2.1.4
+numpy==1.24.4
+
+# Natural Language Processing (Japanese)
+sudachipy==0.6.8
+sudachidict-core==20231110
+
+# Template Engine
+jinja2==3.1.2
+
+# Configuration
+python-dotenv==1.0.0
+pydantic==2.5.0
+pydantic-settings==2.1.0
+
+# Logging
+structlog==23.2.0
+
+# Development & Testing
+pytest==7.4.3
+pytest-asyncio==0.21.1
+pytest-httpx==0.26.0
+
+# Performance
+aiofiles==23.2.1
+
+# Color Analysis
+colorthief==0.2.1
+webcolors==1.13
