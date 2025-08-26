@@ -5,11 +5,18 @@ class HeuristicAnalyzer {
         this.form = document.getElementById('analysisForm');
         this.analyzeBtn = document.getElementById('analyzeBtn');
         this.resultsSection = document.getElementById('results');
+        this.currentAnalysisData = null;
         this.init();
     }
 
     init() {
         this.form.addEventListener('submit', this.handleSubmit.bind(this));
+        
+        // 詳細表示ボタンのイベントリスナー
+        const detailBtn = document.getElementById('showDetailedAnalysis');
+        if (detailBtn) {
+            detailBtn.addEventListener('click', this.loadDetailedAnalysis.bind(this));
+        }
     }
 
     async handleSubmit(event) {
@@ -39,6 +46,10 @@ class HeuristicAnalyzer {
             }
 
             const result = await response.json();
+            this.currentAnalysisData = {
+                url: result.url,
+                device_type: result.url.includes('device_type') ? 'mobile' : 'desktop' // 簡易実装
+            };
             this.displayResults(result);
             
         } catch (error) {
@@ -83,6 +94,12 @@ class HeuristicAnalyzer {
 
         // 結果セクションを表示
         this.resultsSection.style.display = 'block';
+        
+        // 詳細表示ボタンを表示
+        const detailBtn = document.getElementById('showDetailedAnalysis');
+        if (detailBtn) {
+            detailBtn.style.display = 'block';
+        }
         
         // 結果セクションにスムーズスクロール
         this.resultsSection.scrollIntoView({ 
@@ -176,6 +193,101 @@ class HeuristicAnalyzer {
         setTimeout(() => {
             errorDiv.remove();
         }, 5000);
+    }
+
+    async loadDetailedAnalysis() {
+        if (!this.currentAnalysisData) {
+            this.showError('詳細分析データが利用できません');
+            return;
+        }
+
+        const detailBtn = document.getElementById('showDetailedAnalysis');
+        detailBtn.textContent = '📊 詳細分析を読み込み中...';
+        detailBtn.disabled = true;
+
+        try {
+            const response = await fetch('/api/analyze-detailed', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify(this.currentAnalysisData)
+            });
+
+            if (!response.ok) {
+                throw new Error(`HTTP error! status: ${response.status}`);
+            }
+
+            const detailedResult = await response.json();
+            this.displayDetailedAnalysis(detailedResult);
+            
+            // ボタンを非表示にして詳細セクションを表示
+            detailBtn.style.display = 'none';
+            document.getElementById('detailedAnalysisSection').style.display = 'block';
+            
+        } catch (error) {
+            console.error('詳細分析エラー:', error);
+            this.showError('詳細分析の読み込みに失敗しました');
+            detailBtn.textContent = '📊 詳細な得点内訳を見る';
+            detailBtn.disabled = false;
+        }
+    }
+
+    displayDetailedAnalysis(result) {
+        const categoryDetails = document.getElementById('categoryDetails');
+        const categoryNames = {
+            'information_architecture': '情報設計',
+            'cta_visibility': 'CTA視認性',
+            'readability': '可読性',
+            'form_ux': 'フォームUX',
+            'accessibility': 'アクセシビリティ',
+            'performance': 'パフォーマンス'
+        };
+
+        const maxScores = {
+            'information_architecture': 30,
+            'cta_visibility': 20,
+            'readability': 20,
+            'form_ux': 15,
+            'accessibility': 10,
+            'performance': 5
+        };
+
+        let detailHTML = '';
+
+        Object.entries(result.category_details || {}).forEach(([categoryKey, details]) => {
+            const categoryName = categoryNames[categoryKey] || categoryKey;
+            const maxScore = maxScores[categoryKey] || 0;
+            const currentScore = details.score || 0;
+            const rules = details.rules || [];
+
+            detailHTML += `
+                <div class="category-detail-card">
+                    <div class="category-header">
+                        <h4>${categoryName}</h4>
+                        <span class="category-score">${currentScore}/${maxScore}点</span>
+                    </div>
+                    
+                    <div class="rules-list">
+                        ${rules.length > 0 ? 
+                            rules.map(rule => `
+                                <div class="rule-item ${rule.passed ? 'rule-passed' : 'rule-failed'}">
+                                    <div class="rule-icon">${rule.passed ? '✅' : '❌'}</div>
+                                    <div class="rule-content">
+                                        <div class="rule-description">${rule.description}</div>
+                                        <div class="rule-impact">${rule.score_impact > 0 ? '+' : ''}${rule.score_impact}点</div>
+                                        ${!rule.passed ? `<div class="rule-recommendation">💡 ${rule.recommendation}</div>` : ''}
+                                    </div>
+                                </div>
+                            `).join('') 
+                            : '<div class="no-rules">このカテゴリの詳細ルールはありません</div>'
+                        }
+                    </div>
+                </div>
+            `;
+        });
+
+        categoryDetails.innerHTML = detailHTML;
     }
 }
 

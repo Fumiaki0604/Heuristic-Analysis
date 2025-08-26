@@ -37,6 +37,15 @@ class AnalysisResponse(BaseModel):
     screenshot_path: str
     analysis_time: float
 
+class DetailedAnalysisResponse(BaseModel):
+    url: str
+    total_score: int
+    categories: dict
+    recommendations: list
+    screenshot_path: str
+    analysis_time: float
+    category_details: dict
+
 @app.get("/", response_class=HTMLResponse)
 async def root(request: Request):
     """メインページを表示"""
@@ -77,6 +86,38 @@ async def analyze_website(analysis_request: AnalysisRequest):
     except Exception as e:
         logger.error(f"分析エラー: {str(e)}")
         raise HTTPException(status_code=500, detail=f"分析中にエラーが発生しました: {str(e)}")
+
+@app.post("/api/analyze-detailed", response_model=DetailedAnalysisResponse)
+async def analyze_website_detailed(analysis_request: AnalysisRequest):
+    """
+    Webページの詳細ヒューリスティック分析を実行（カテゴリ詳細付き）
+    """
+    try:
+        logger.info(f"詳細分析リクエスト受信: {analysis_request.url}")
+        
+        # 実際の分析処理を実行
+        analysis_result = await analysis_service.analyze_website(
+            url=str(analysis_request.url),
+            device_type=analysis_request.device_type
+        )
+        
+        # 詳細APIレスポンス形式に変換
+        response = DetailedAnalysisResponse(
+            url=analysis_result["url"],
+            total_score=analysis_result["total_score"],
+            categories=analysis_result["categories"],
+            recommendations=analysis_result["recommendations"],
+            screenshot_path=analysis_result["screenshot_path"],
+            analysis_time=analysis_result["analysis_time"],
+            category_details=analysis_result.get("heuristic_analysis", {}).get("category_details", {})
+        )
+        
+        logger.info(f"詳細分析完了: {analysis_request.url} (スコア: {response.total_score})")
+        return response
+        
+    except Exception as e:
+        logger.error(f"詳細分析エラー: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"詳細分析中にエラーが発生しました: {str(e)}")
 
 @app.get("/api/analyze/{analysis_id}")
 async def get_analysis_result(analysis_id: str):
